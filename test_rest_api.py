@@ -21,9 +21,10 @@ def test_create_blip():
 
 def test_get_blip():
     # First, create a blip to ensure there is one to retrieve
-    client.post("/v0/blips", json=VALID_BLIP)
+    response = client.post("/v0/blips", json=VALID_BLIP)
+    blip_id = response.json()["id"]
 
-    response = client.get(f"/v0/blips/{VALID_BLIP['flight_id']}")
+    response = client.get(f"/v0/blips/{blip_id}")
 
     assert response.status_code == 200
     body = response.json()
@@ -52,7 +53,13 @@ def test_missing_field():
 
 
 def test_get_blip_not_found():
-    response = client.get("/v0/blips/INVALID")
+    response = client.get("/v0/blips/2147483647")
 
     assert response.status_code == 404
     assert response.json() == {"detail": "Blip not found"}
+
+
+def test_get_blip_id_out_of_range():
+    response = client.get("/v0/blips/2147483648")
+
+    assert response.status_code == 422

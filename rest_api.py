@@ -1,25 +1,44 @@
-from fastapi import FastAPI, HTTPException
+from typing import Annotated
+
+from fastapi import Depends, FastAPI, HTTPException, Path
 from flight_blip import FlightBlip
 
+from sqlalchemy import select
+from sqlalchemy.orm import Session
+from database import Base, ENGINE, get_db
+from models import BlipRecord
+
 app = FastAPI()
-blips = {}
-next_id = 1
+
+Base.metadata.create_all(bind=ENGINE)
 
 @app.post("/v0/blips", status_code=201)
-def create_blip(blip: FlightBlip):
-    global next_id
-    blips[next_id] = {"id": next_id, **blip.model_dump()}
-    next_id += 1
-    return blip
+def create_blip(blip: FlightBlip, db: Session = Depends(get_db)):
+    record = BlipRecord(**blip.model_dump())
+    db.add(record)
+    db.commit()
+    db.refresh(record)
+    return record
+
 
 @app.get("/v0/blips/{blip_id}")
-def get_blip(blip_id: str):
-    for counter_entry in blips.values():
-        if blip_id == counter_entry["flight_id"]:
-            return counter_entry
-    
-    raise HTTPException(status_code=404, detail="Blip not found")
+def get_blip(
+    blip_id: Annotated[int, Path(ge=1, le=2_147_483_647)],
+    db: Session = Depends(get_db),
+):
+    record = db.scalars(
+        select(BlipRecord)
+        .where(BlipRecord.id == blip_id)
+        .order_by(BlipRecord.id)
+    ).first()
 
-@app.get("/v0/debug")
-def debug():
-    return blips
+    if record is None:
+        raise HTTPException(status_code=404, detail="Blip not found")
+    return record
+
+
+@app.get("/v0/blips")
+def list_blips(db: Session = Depends(get_db)):
+    return db.scalars(
+        select(BlipRecord).order_by(BlipRecord.id)
+    ).all()
