@@ -11,5 +11,5 @@ docker compose exec api pytest -v
 
 To shutdown container: 
 docker compose down 
-  -- add -v to fully wipe container, allowing a full rebuild.
+ (add -v to fully wipe container, allowing a full rebuild)
 
